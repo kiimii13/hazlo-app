@@ -9,9 +9,8 @@
 | Asignatura | Aplicaciones Móviles |
 | Sección | 51 |
 | Docente | Boris Belmar |
-| Fecha de entrega | [Completar] |
+| Fecha de entrega | [01/10/2026] |
 
-[Insertar captura de la pantalla principal de Hazlo]
 
 ## 1. Introducción
 
@@ -116,7 +115,7 @@ Las decisiones de interfaz buscan:
 
 #### Pantalla principal y Formulario para crear una tarea en Expo Go
 
-[Pantalla principal hazlo] (docs/capturas/pantalla-principal-formulario.png)
+[Pantalla principal hazlo](docs/capturas/pantalla-principal-formulario.png)
 
 
 #### Lista con tareas guardadas
@@ -125,7 +124,7 @@ Las decisiones de interfaz buscan:
 
 #### Confirmación o acción de eliminación
 
-[Eliminación de una tarea] (docs/capturas/eliminar-tareas.png)
+[Eliminación de una tarea](docs/capturas/eliminar-tareas.png)
 
 
 #### Vista web local
@@ -172,21 +171,21 @@ Durante el desarrollo se ejecutaron las siguientes comprobaciones:
 | Vista web local | La aplicación se abrió en `http://localhost:8100`. |
 | Expo Go | La aplicación se abrió en el teléfono. |
 
-### Evidencia de pruebas funcionales
+### Pruebas funcionales realizadas
 
 | Caso | Resultado |
 |---|---|
-| Crear una tarea con título y descripción | [Completar resultado y agregar evidencia] |
-| Comprobar que el formulario queda limpio después de guardar | [Completar resultado y agregar evidencia] |
-| Cerrar y reabrir la aplicación para comprobar la persistencia | [Completar resultado y agregar evidencia] |
-| Eliminar una tarea específica | [Completar resultado y agregar evidencia] |
-| Comprobar el comportamiento cuando faltan datos obligatorios | [Completar resultado y agregar evidencia] |
+| Crear una tarea con título y descripción | [OK] |
+| Comprobar que el formulario queda limpio después de guardar | [OK] |
+| Cerrar y reabrir la aplicación para comprobar la persistencia | [OK] |
+| Eliminar una tarea específica | [OK] |
+
 
 ## 11. Conclusión
 
 Hazlo cumple el objetivo de ofrecer una primera aplicación móvil para organizar tareas mediante una interfaz sencilla. React Native y Expo permiten desarrollar y probar la experiencia móvil, TypeScript ayuda a describir la información que utiliza la aplicación y AsyncStorage conserva las tareas localmente.
 
-La separación entre pantalla, lógica de tareas y almacenamiento facilita comprender la estructura del proyecto. Como mejora futura, se podría agregar edición de tareas, filtros o sincronización remota, siempre que el alcance del curso lo requiera.
+La separación entre pantalla, lógica de tareas y almacenamiento facilita comprender la estructura del proyecto. Como mejora futura, se podría agregar edición de tareas, filtros o sincronización remota.
 
 ## 12. Referencias
 
