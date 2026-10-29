@@ -17,13 +17,24 @@ import { useTasks } from '@/hooks/use-tasks';
 import type { Task } from '@/lib/tasks';
 
 const colors = {
-  paper: '#F7F3ED',
-  ink: '#252127',
-  plum: '#5A3153',
-  mist: '#E4DDD5',
+  paper: '#F1F7F2',
+  ink: '#183B2B',
+  forest: '#1F5D42',
+  green: '#2F7D5A',
+  mist: '#C9DED0',
   white: '#FFFFFF',
+  muted: '#5B7467',
+  input: '#FAFDF9',
   error: '#A33A3A',
+  errorSurface: '#FCE8E5',
+  overlay: 'rgba(24, 59, 43, 0.45)',
 };
+const fontFamily = Platform.select({
+  ios: 'System',
+  android: 'sans-serif',
+  web: 'system-ui',
+  default: 'sans-serif',
+});
 
 export default function HomeScreen() {
   const { tasks, isLoading, error, addTask, removeTask } = useTasks();
@@ -77,7 +88,7 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.brand}>hazlo</Text>
+            <Text style={styles.brand}>Hazlo</Text>
             <Text style={styles.count}>{taskCountLabel}</Text>
             <Text style={styles.intro}>Saca una cosa de tu cabeza y ponla en marcha.</Text>
           </View>
@@ -90,7 +101,7 @@ export default function HomeScreen() {
               autoCapitalize="sentences"
               onChangeText={setTitle}
               placeholder="Ej. Preparar la propuesta"
-              placeholderTextColor="#8E858A"
+              placeholderTextColor={colors.muted}
               returnKeyType="next"
               style={styles.input}
               value={title}
@@ -103,7 +114,7 @@ export default function HomeScreen() {
               numberOfLines={4}
               onChangeText={setDescription}
               placeholder="Añade el contexto que necesites"
-              placeholderTextColor="#8E858A"
+              placeholderTextColor={colors.muted}
               style={[styles.input, styles.descriptionInput]}
               textAlignVertical="top"
               value={description}
@@ -119,7 +130,13 @@ export default function HomeScreen() {
                 (!canSave || isSaving || deletingTaskId) && styles.disabledButton,
                 pressed && canSave && styles.pressed,
               ]}>
-              <Text style={styles.primaryButtonText}>{isSaving ? 'Guardando…' : 'Guardar tarea'}</Text>
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  (!canSave || isSaving || deletingTaskId) && styles.disabledButtonText,
+                ]}>
+                {isSaving ? 'Guardando…' : 'Guardar tarea'}
+              </Text>
             </Pressable>
           </View>
 
@@ -220,22 +237,26 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   brand: {
-    color: colors.plum,
-    fontFamily: 'Georgia',
-    fontSize: 48,
-    fontWeight: '700',
-    letterSpacing: -1,
+    color: colors.green,
+    fontFamily,
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: -1.2,
+    lineHeight: 48,
   },
   count: {
     color: colors.ink,
-    fontSize: 18,
+    fontFamily,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.2,
     marginTop: 4,
   },
   intro: {
-    color: '#655C61',
-    fontSize: 16,
-    lineHeight: 23,
+    color: colors.muted,
+    fontFamily,
+    fontSize: 15,
+    lineHeight: 22,
     marginTop: 8,
   },
   form: {
@@ -247,23 +268,30 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.ink,
-    fontSize: 22,
-    fontWeight: '700',
+    fontFamily,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    lineHeight: 26,
   },
   label: {
     color: colors.ink,
-    fontSize: 14,
+    fontFamily,
+    fontSize: 13,
     fontWeight: '700',
+    letterSpacing: 0.2,
     marginBottom: 8,
     marginTop: 18,
   },
   input: {
-    backgroundColor: '#FCFAF7',
+    backgroundColor: colors.input,
     borderColor: colors.mist,
     borderRadius: 12,
     borderWidth: 1,
     color: colors.ink,
+    fontFamily,
     fontSize: 16,
+    lineHeight: 22,
     minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -272,14 +300,15 @@ const styles = StyleSheet.create({
     minHeight: 112,
   },
   helper: {
-    color: '#756B70',
+    color: colors.muted,
+    fontFamily,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 10,
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: colors.plum,
+    backgroundColor: '#187A4B',
     borderRadius: 12,
     justifyContent: 'center',
     minHeight: 48,
@@ -287,23 +316,30 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: colors.white,
-    fontSize: 16,
+    fontFamily,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.1,
+    lineHeight: 20,
   },
   disabledButton: {
-    opacity: 0.45,
+    backgroundColor: '#D8E5DB',
+  },
+  disabledButtonText: {
+    color: '#5D7567',
   },
   pressed: {
     opacity: 0.75,
   },
   errorBox: {
-    backgroundColor: '#FCE8E5',
+    backgroundColor: colors.errorSurface,
     borderRadius: 12,
     marginTop: 16,
     padding: 14,
   },
   errorText: {
     color: colors.error,
+    fontFamily,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -315,7 +351,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   muted: {
-    color: '#756B70',
+    color: colors.muted,
+    fontFamily,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -330,8 +367,10 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: colors.ink,
+    fontFamily,
     fontSize: 16,
     fontWeight: '700',
+    lineHeight: 22,
     marginBottom: 4,
   },
   taskList: {
@@ -346,11 +385,15 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     color: colors.ink,
-    fontSize: 18,
+    fontFamily,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.1,
+    lineHeight: 22,
   },
   taskDescription: {
-    color: '#655C61',
+    color: colors.muted,
+    fontFamily,
     fontSize: 15,
     lineHeight: 22,
     marginTop: 6,
@@ -363,12 +406,14 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: colors.error,
+    fontFamily,
     fontSize: 14,
     fontWeight: '700',
+    lineHeight: 20,
   },
   modalBackdrop: {
     alignItems: 'center',
-    backgroundColor: 'rgba(37, 33, 39, 0.45)',
+    backgroundColor: colors.overlay,
     flex: 1,
     justifyContent: 'center',
     padding: 24,
@@ -382,11 +427,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: colors.ink,
+    fontFamily,
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
+    lineHeight: 25,
   },
   modalMessage: {
-    color: '#655C61',
+    color: colors.muted,
+    fontFamily,
     fontSize: 16,
     lineHeight: 23,
     marginTop: 8,
@@ -404,8 +452,10 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     color: colors.ink,
+    fontFamily,
     fontSize: 14,
     fontWeight: '700',
+    lineHeight: 20,
   },
   modalDeleteButton: {
     alignItems: 'center',
@@ -417,8 +467,10 @@ const styles = StyleSheet.create({
   },
   modalDeleteText: {
     color: colors.white,
+    fontFamily,
     fontSize: 14,
     fontWeight: '700',
+    lineHeight: 20,
   },
 });
  
