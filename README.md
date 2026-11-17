@@ -62,46 +62,124 @@ El almacenamiento es local, no se cifra y no sincroniza información entre el te
 
 ## 5. Arquitectura y organización
 
-El proyecto organiza la navegación, la lógica de tareas y el almacenamiento en distintas partes:
+La aplicación mantiene tres responsabilidades principales:
 
 | Archivo o carpeta | Responsabilidad |
 |---|---|
-| `src/app/_layout.tsx` | Define la estructura de navegación de la aplicación. |
-| `src/app/index.tsx` | Presenta la pantalla principal de Hazlo. |
-| `src/hooks/use-tasks.ts` | Agrupa la lógica y el estado relacionados con las tareas. |
-| `src/lib/tasks.ts` | Lee y guarda las tareas mediante AsyncStorage. |
-| `docs/BRIEF.md` | Describe el objetivo y el alcance funcional del proyecto. |
-| `docs/STACK.md` | Registra las tecnologías y decisiones técnicas del proyecto. |
+| `src/app/_layout.tsx` | Configura el `Stack` raíz de Expo Router sin header visible. |
+| `src/app/index.tsx` | Presenta la pantalla principal, el formulario, la lista y el modal de confirmación. |
+| `src/hooks/use-tasks.ts` | Agrupa el estado y las operaciones de cargar, crear y eliminar tareas. |
+| `src/lib/tasks.ts` | Define `Task`, valida los datos leídos y encapsula AsyncStorage. |
+| `src/components/` | Conserva componentes del template; la primera entrega no separa el formulario ni cada tarea en componentes propios. |
 
-La navegación se organiza con Expo Router. El código separa la presentación visual de la lógica de tareas y de las operaciones de almacenamiento, de modo que cada parte tenga una responsabilidad reconocible.
+La navegación usa Expo Router, pero el flujo actual de Hazlo se concentra en `src/app/index.tsx`. La pantalla gestiona la interacción visual; `useTasks` coordina el estado y las operaciones; `tasks.ts` se ocupa del modelo y la persistencia. Esta separación evita que la pantalla conozca la clave o el formato JSON de AsyncStorage.
 
-## 6. Patrones y principios de diseño utilizados
+## 6. Patrones y flujo de una tarea
 
 ### Interfaz declarativa
 
-La pantalla representa el estado actual de la aplicación. Cuando la lista cambia —por ejemplo, al agregar o eliminar una tarea—, React vuelve a representar la interfaz con los datos actualizados.
+`HomeScreen` describe qué debe mostrarse según el estado actual. Si no está cargando y `tasks` está vacío, muestra el estado vacío; en otro caso recorre la lista. Este fragmento real de `src/app/index.tsx` representa cada tarea con sus datos y su acción:
 
-### Componentes reutilizables
+```tsx
+<View style={styles.taskList}>
+  {tasks.map((task) => (
+    <View key={task.id} style={styles.task}>
+      <Text style={styles.taskTitle}>{task.title}</Text>
+      <Text style={styles.taskDescription}>{task.description}</Text>
+      <Pressable
+        accessibilityLabel={`Eliminar tarea ${task.title}`}
+        accessibilityRole="button"
+        accessibilityState={{
+          disabled: Boolean(deletingTaskId) || isSaving,
+        }}
+        disabled={Boolean(deletingTaskId) || isSaving}
+        hitSlop={8}
+        onPress={() => confirmDelete(task)}
+        style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+        <Text style={styles.deleteText}>
+          {deletingTaskId === task.id ? 'Eliminando…' : 'Eliminar'}
+        </Text>
+      </Pressable>
+    </View>
+  ))}
+</View>
+```
 
-La interfaz se construye combinando componentes para organizar áreas como el formulario, la lista y cada tarea. Esta composición permite separar partes de la pantalla y hacer más comprensible su estructura.
-
-### Flujo de datos unidireccional
-
-La información de las tareas se administra desde el estado de la aplicación y se entrega a los componentes que la necesitan. Las acciones, como guardar o eliminar, comunican los cambios para actualizar ese estado.
+Cuando `tasks` cambia, React vuelve a representar esta parte de la pantalla. No se modifica manualmente el contenido de la lista: el resultado se deriva del estado.
 
 ### Hook personalizado
 
-`use-tasks.ts` encapsula la lógica de tareas, como cargar, agregar o eliminar elementos. Esto evita mezclar toda esa lógica con la presentación visual de la pantalla.
+La pantalla obtiene el estado y las acciones desde `useTasks`:
+
+```tsx
+const { tasks, isLoading, error, addTask, removeTask } = useTasks();
+```
+
+El hook, en `src/hooks/use-tasks.ts`, carga las tareas al montarse y expone `tasks`, `isLoading`, `error`, `addTask` y `removeTask`. También maneja los errores de almacenamiento para que la pantalla solo tenga que mostrar el mensaje recibido.
 
 ### Separación de responsabilidades
 
-`tasks.ts` concentra el acceso a AsyncStorage, mientras que la pantalla y el hook coordinan la interacción y el estado. Esta organización permite localizar con mayor facilidad cada tipo de cambio.
+La pantalla coordina la interacción del formulario. `handleSave` llama al hook y limpia los campos únicamente cuando el guardado termina correctamente:
+
+```tsx
+async function handleSave() {
+  if (!canSave || isSaving || deletingTaskId) return;
+
+  setIsSaving(true);
+  try {
+    if (await addTask(title, description)) {
+      setTitle('');
+      setDescription('');
+    }
+  } finally {
+    setIsSaving(false);
+  }
+}
+```
+
+El hook crea los metadatos de la tarea y persiste antes de actualizar la interfaz:
+
+```ts
+const nextTasks = [task, ...tasks];
+
+try {
+  await saveTasks(nextTasks);
+  setTasks(nextTasks);
+  setError(null);
+  return true;
+} catch {
+  setError('No se pudo guardar la tarea. Revisa el almacenamiento del dispositivo.');
+  return false;
+}
+```
+
+El acceso a AsyncStorage queda en `src/lib/tasks.ts`:
+
+```ts
+export function saveTasks(tasks: Task[]) {
+  return AsyncStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+}
+```
+
+Así, la pantalla no guarda JSON directamente y el hook no necesita conocer la implementación concreta del almacenamiento.
+
+### Creación de una tarea paso a paso
+
+1. **Entrada:** los `TextInput` de `src/app/index.tsx` actualizan `title` y `description` mediante `useState`. `canSave` comprueba que ambos tengan contenido.
+2. **Acción:** `handleSave` llama a `addTask(title, description)`. Si la operación tiene éxito, limpia el formulario.
+3. **Lógica:** `addTask` crea `id`, `createdAt` y `updatedAt`, agrega la nueva tarea al inicio y llama a `saveTasks`.
+4. **Persistencia:** `saveTasks` serializa el arreglo completo y lo guarda bajo la clave `@hazlo/tasks`.
+5. **Visualización:** después de `setTasks(nextTasks)`, `HomeScreen` recibe el nuevo estado y `tasks.map` muestra el título y la descripción.
+
+Al volver a abrir la pantalla, el mismo hook llama a `loadTasks`. `src/lib/tasks.ts` lee la clave, analiza y valida el JSON, ordena por `updatedAt` y devuelve las tareas para que la interfaz las represente.
+
+La eliminación sigue el mismo límite entre capas: la pantalla abre el modal y confirma la acción; `removeTask` filtra por `id`, usa `saveTasks` y actualiza `tasks`.
 
 ## 7. Diseño de la interfaz y experiencia de usuario
 
 La interfaz de Hazlo prioriza la tarea principal: registrar y consultar actividades. El título identifica la aplicación, el formulario agrupa los campos relacionados y la lista presenta cada tarea de forma consistente.
 
-La propuesta visual utiliza una base clara llamada Paper, Plum como color principal y Pollen como acento. La tipografía del nombre de la aplicación ayuda a distinguir la marca del resto de la información.
+La implementación actual utiliza una paleta verde y un tema claro compartidos entre web y Expo Go. La tipografía del nombre de la aplicación ayuda a distinguir la marca del resto de la información.
 
 Las decisiones de interfaz buscan:
 
@@ -122,6 +200,7 @@ Las decisiones de interfaz buscan:
 
 [Lista de tareas](docs/capturas/lista-tareas.png)
 
+
 #### Confirmación o acción de eliminación
 
 [Eliminación de una tarea](docs/capturas/eliminar-tareas.png)
@@ -130,6 +209,7 @@ Las decisiones de interfaz buscan:
 #### Vista web local
 
 [Vista web local de Hazlo](docs/capturas/vista-web.png)
+
 
 ## 8. Componentes e interacciones
 

@@ -1,4 +1,6 @@
+
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+
 
 ## Expo has changed — do not trust your training data
 
@@ -39,3 +41,24 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+# Instrucciones del proyecto
+
+## Al iniciar una tarea
+Antes de analizar o modificar el proyecto, lee `docs/MEMORY.md` para conocer el estado, las decisiones tomadas y los pendientes. Después, revisa los archivos actuales del proyecto y confirma que la memoria siga coincidiendo con el código.
+
+## Al terminar una tarea
+Si la tarea produjo cambios relevantes, actualiza `docs/MEMORY.md` con:
+- qué se hizo;
+- decisiones importantes;
+- archivos modificados;
+- comprobaciones realizadas y sus resultados;
+- pendientes o próximos pasos.
+
+Mantén la memoria clara y breve. No guardes contraseñas, claves ni otros datos sensibles.
+
+## Forma de trabajar
+- Respeta las decisiones vigentes que estén en `docs/MEMORY.md`.
+- Si la memoria contradice el código actual, verifica el proyecto y actualiza la memoria con la información correcta.
+- No sobrescribas cambios existentes sin revisarlos.
+- Comunícate en español y escribe el código en inglés.
