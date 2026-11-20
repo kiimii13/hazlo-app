@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
@@ -13,6 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AuthScreen } from '@/components/auth-screen';
+import { TaskCapture, type TaskAttachmentValues } from '@/components/task-capture';
+
+import { useAuth } from '@/hooks/use-auth';
 import { useTasks } from '@/hooks/use-tasks';
 import type { Task } from '@/lib/tasks';
 
@@ -37,12 +42,53 @@ const fontFamily = Platform.select({
 });
 
 export default function HomeScreen() {
-  const { tasks, isLoading, error, addTask, removeTask } = useTasks();
+  const auth = useAuth();
+
+  if (auth.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Text style={styles.loadingText}>Cargando sesión…</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!auth.user) {
+    return (
+      <AuthScreen
+        error={auth.error}
+        isSubmitting={auth.isSubmitting}
+        onLogin={auth.login}
+        onRegister={auth.register}
+      />
+    );
+  }
+
+  return (
+    <TaskHomeScreen
+      key={auth.user.id}
+      onLogout={auth.logout}
+      userId={auth.user.id}
+      username={auth.user.username}
+    />
+  );
+}
+
+type TaskHomeScreenProps = {
+  onLogout: () => Promise<void>;
+  userId: string;
+  username: string;
+};
+
+function TaskHomeScreen({ onLogout, userId, username }: TaskHomeScreenProps) {
+  const { tasks, isLoading, error, addTask, editTask, removeTask } = useTasks(userId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<TaskAttachmentValues>({});
+
 
   const canSave = title.trim().length > 0 && description.trim().length > 0;
   const taskCountLabel = tasks.length === 1 ? '1 tarea pendiente' : `${tasks.length} tareas pendientes`;
@@ -52,13 +98,37 @@ export default function HomeScreen() {
 
     setIsSaving(true);
     try {
-      if (await addTask(title, description)) {
+      const saved = editingTaskId
+        ? await editTask(editingTaskId, title, description, attachments)
+        : await addTask(title, description, attachments);
+
+      if (saved) {
         setTitle('');
         setDescription('');
+        setEditingTaskId(null);
+        setAttachments({});
       }
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function startEditing(task: Task) {
+    setEditingTaskId(task.id);
+    setTitle(task.title);
+    setDescription(task.description);
+    setAttachments({
+      photoUri: task.photoUri,
+      latitude: task.latitude,
+      longitude: task.longitude,
+    });
+  }
+
+  function cancelEditing() {
+    setEditingTaskId(null);
+    setTitle('');
+    setDescription('');
+    setAttachments({});
   }
 
   async function handleDelete() {
@@ -88,13 +158,19 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.brand}>Hazlo</Text>
+            <View style={styles.headerTop}>
+              <Text style={styles.brand}>Hazlo</Text>
+              <Pressable accessibilityRole="button" onPress={() => void onLogout()} style={styles.logoutButton}>
+                <Text style={styles.logoutText}>Cerrar sesión</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.userLabel}>Usuario: {username}</Text>
             <Text style={styles.count}>{taskCountLabel}</Text>
             <Text style={styles.intro}>Saca una cosa de tu cabeza y ponla en marcha.</Text>
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.sectionTitle}>Nueva tarea</Text>
+            <Text style={styles.sectionTitle}>{editingTaskId ? 'Editar tarea' : 'Nueva tarea'}</Text>
             <Text style={styles.label}>Título</Text>
             <TextInput
               accessibilityLabel="Título de la tarea"
@@ -119,6 +195,12 @@ export default function HomeScreen() {
               textAlignVertical="top"
               value={description}
             />
+            <TaskCapture
+              disabled={isSaving || Boolean(deletingTaskId)}
+              onChange={setAttachments}
+              value={attachments}
+            />
+
             {!canSave && <Text style={styles.helper}>Completa el título y la descripción para guardar.</Text>}
             <Pressable
               accessibilityRole="button"
@@ -135,9 +217,18 @@ export default function HomeScreen() {
                   styles.primaryButtonText,
                   (!canSave || isSaving || deletingTaskId) && styles.disabledButtonText,
                 ]}>
-                {isSaving ? 'Guardando…' : 'Guardar tarea'}
+                {isSaving ? 'Guardando…' : editingTaskId ? 'Guardar cambios' : 'Guardar tarea'}
               </Text>
             </Pressable>
+            {editingTaskId && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSaving}
+                onPress={cancelEditing}
+                style={styles.cancelEditButton}>
+                <Text style={styles.cancelEditText}>Cancelar edición</Text>
+              </Pressable>
+            )}
           </View>
 
           {error && (
@@ -162,20 +253,45 @@ export default function HomeScreen() {
                 <View key={task.id} style={styles.task}>
                   <Text style={styles.taskTitle}>{task.title}</Text>
                   <Text style={styles.taskDescription}>{task.description}</Text>
-                  <Pressable
-                    accessibilityLabel={`Eliminar tarea ${task.title}`}
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      disabled: Boolean(deletingTaskId) || isSaving,
-                    }}
-                    disabled={Boolean(deletingTaskId) || isSaving}
-                    hitSlop={8}
-                    onPress={() => confirmDelete(task)}
-                    style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
-                    <Text style={styles.deleteText}>
-                      {deletingTaskId === task.id ? 'Eliminando…' : 'Eliminar'}
+                  {task.photoUri && (
+                    <Image
+                      accessibilityLabel={`Foto de ${task.title}`}
+                      source={{ uri: task.photoUri }}
+                      style={styles.taskPhoto}
+                    />
+                  )}
+                  {task.latitude !== undefined && task.longitude !== undefined && (
+                    <Text style={styles.taskMeta}>
+                      Ubicación: {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
                     </Text>
-                  </Pressable>
+                  )}
+                  <View style={styles.taskActions}>
+                    <Pressable
+                      accessibilityLabel={`Editar tarea ${task.title}`}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: Boolean(deletingTaskId) || isSaving || Boolean(editingTaskId),
+                      }}
+                      disabled={Boolean(deletingTaskId) || isSaving || Boolean(editingTaskId)}
+                      onPress={() => startEditing(task)}
+                      style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+                      <Text style={styles.editText}>Editar</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel={`Eliminar tarea ${task.title}`}
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: Boolean(deletingTaskId) || isSaving || Boolean(editingTaskId),
+                      }}
+                      disabled={Boolean(deletingTaskId) || isSaving || Boolean(editingTaskId)}
+                      hitSlop={8}
+                      onPress={() => confirmDelete(task)}
+                      style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}>
+                      <Text style={styles.deleteText}>
+                        {deletingTaskId === task.id ? 'Eliminando…' : 'Eliminar'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               ))}
             </View>
@@ -221,6 +337,42 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.paper,
+  },
+  loadingText: {
+    color: colors.muted,
+    fontFamily,
+    fontSize: 16,
+    lineHeight: 24,
+    margin: 'auto',
+    textAlign: 'center',
+  },
+  headerTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  userLabel: {
+    color: colors.muted,
+    fontFamily,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    borderColor: colors.mist,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
+  logoutText: {
+    color: colors.forest,
+    fontFamily,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
   },
   keyboard: {
     flex: 1,
@@ -328,6 +480,19 @@ const styles = StyleSheet.create({
   disabledButtonText: {
     color: '#5D7567',
   },
+  cancelEditButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    marginTop: 8,
+  },
+  cancelEditText: {
+    color: colors.muted,
+    fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
   pressed: {
     opacity: 0.75,
   },
@@ -399,6 +564,41 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 7,
   },
+  taskPhoto: {
+    borderRadius: 12,
+    height: 180,
+    marginTop: 12,
+    width: '100%',
+  },
+  taskMeta: {
+    color: colors.muted,
+    fontFamily,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  taskActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  editButton: {
+    alignItems: 'center',
+    backgroundColor: '#E4F0E6',
+    borderColor: colors.green,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  editText: {
+    color: colors.forest,
+    fontFamily,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
   deleteButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -408,7 +608,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     justifyContent: 'center',
     minHeight: 44,
-    marginTop: 14,
     paddingHorizontal: 14,
   },
   deleteText: {

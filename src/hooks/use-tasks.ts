@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { loadTasks, saveTasks, type Task } from '@/lib/tasks';
+import { deleteTask, insertTask, loadTasks, updateTask, type Task } from '@/lib/tasks';
+
+type TaskAttachments = Pick<Task, 'photoUri' | 'latitude' | 'longitude'>;
 
 function createTaskId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function useTasks() {
+export function useTasks(userId: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +16,7 @@ export function useTasks() {
   useEffect(() => {
     let isMounted = true;
 
-    void loadTasks()
+    void loadTasks(userId)
       .then((loadedTasks) => {
         if (isMounted) setTasks(loadedTasks);
       })
@@ -30,27 +32,64 @@ export function useTasks() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userId]);
 
   const addTask = useCallback(
-    async (title: string, description: string) => {
+    async (title: string, description: string, attachments: TaskAttachments = {}) => {
       const now = new Date().toISOString();
       const task: Task = {
         id: createTaskId(),
+        userId,
         title,
         description,
         createdAt: now,
         updatedAt: now,
+        ...attachments,
       };
       const nextTasks = [task, ...tasks];
 
       try {
-        await saveTasks(nextTasks);
+        await insertTask(task);
         setTasks(nextTasks);
         setError(null);
         return true;
       } catch {
         setError('No se pudo guardar la tarea. Revisa el almacenamiento del dispositivo.');
+        return false;
+      }
+    },
+    [tasks, userId],
+  );
+
+  const editTask = useCallback(
+    async (
+      id: string,
+      title: string,
+      description: string,
+      attachments: TaskAttachments = {},
+    ) => {
+      const currentTask = tasks.find((task) => task.id === id);
+      if (!currentTask) {
+        setError('No se encontró la tarea que quieres editar.');
+        return false;
+      }
+
+      const task: Task = {
+        ...currentTask,
+        title,
+        description,
+        updatedAt: new Date().toISOString(),
+        ...attachments,
+      };
+      const nextTasks = [task, ...tasks.filter((currentTask) => currentTask.id !== id)];
+
+      try {
+        await updateTask(task);
+        setTasks(nextTasks);
+        setError(null);
+        return true;
+      } catch {
+        setError('No se pudo actualizar la tarea. Inténtalo de nuevo.');
         return false;
       }
     },
@@ -62,7 +101,7 @@ export function useTasks() {
       const nextTasks = tasks.filter((task) => task.id !== id);
 
       try {
-        await saveTasks(nextTasks);
+        await deleteTask(id, userId);
         setTasks(nextTasks);
         setError(null);
         return true;
@@ -71,8 +110,8 @@ export function useTasks() {
         return false;
       }
     },
-    [tasks],
+    [tasks, userId],
   );
 
-  return { tasks, isLoading, error, addTask, removeTask };
+  return { tasks, isLoading, error, addTask, editTask, removeTask };
 }
